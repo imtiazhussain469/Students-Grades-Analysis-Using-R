@@ -1,0 +1,155 @@
+---
+title: "Student Data Analysis"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+# Loading required libraries
+library(superml)
+library(ggplot2)
+library(Metrics)
+library(dplyr)
+library(e1071)
+library(corrplot)
+library(gridExtra)
+library(gridtext)
+library(caret)
+```
+
+
+```{r}
+# Read the data set
+st_df <- read.csv("student-mat.csv")
+# Check structure of data set
+str(st_df)
+# Make a copy of data set
+st_df_1 <- st_df
+```
+
+```{r, warning=FALSE}
+# Encode character columns to numeric using label encoder
+# Label encode categorical variables
+label <- LabelEncoder$new()
+st_df_1$school <- label$fit_transform(st_df_1$school)
+st_df_1$sex <- label$fit_transform(st_df_1$sex)
+st_df_1$famsize <- label$fit_transform(st_df_1$famsize)
+st_df_1$Pstatus <- label$fit_transform(st_df_1$Pstatus)
+st_df_1$Mjob <- label$fit_transform(st_df_1$Mjob)
+st_df_1$Fjob <- label$fit_transform(st_df_1$Fjob)
+st_df_1$reason <- label$fit_transform(st_df_1$reason)
+st_df_1$guardian <- label$fit_transform(st_df_1$guardian)
+st_df_1$schoolsup <- label$fit_transform(st_df_1$schoolsup)
+st_df_1$famsup <- label$fit_transform(st_df_1$famsup)
+st_df_1$paid <- label$fit_transform(st_df_1$paid)
+st_df_1$activities <- label$fit_transform(st_df_1$activities)
+st_df_1$nursery <- label$fit_transform(st_df_1$nursery)
+st_df_1$higher <- label$fit_transform(st_df_1$higher)
+st_df_1$internet <- label$fit_transform(st_df_1$internet)
+st_df_1$romantic <- label$fit_transform(st_df_1$romantic)
+
+# Remove address from data. That is unnecessary
+st_df_1 <- st_df_1[, -which(names(st_df_1) %in% c("address"))]
+
+# Drop null values if any
+st_df_1 <- na.omit(st_df_1)
+
+# Check final data structure
+str(st_df_1)
+```
+
+
+```{r}
+head(st_df_1)
+```
+
+
+```{r}
+# Subset continuous columns to see the correlation between them
+temp_data <- st_df_1[, which(names(st_df_1) %in% c("age", 
+                                                   "absences", 
+                                                   "failures", 
+                                                   "G1", 
+                                                   "G2", 
+                                                   "G3"))]
+# Calculate correlation matrix.
+cor <- cor(temp_data)
+
+# Plot correlation matrix created above
+corrplot(cor, method = 'color', order = 'alphabet')
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+# Plot distributions of G1, G2 and G3
+G1_p <- ggplot(st_df_1, aes(x = G1)) + 
+  geom_histogram(color="orange") +
+  labs(title = "First Period Grade Distribution")
+
+G2_p <- ggplot(st_df_1, aes(x = G2)) + 
+  geom_histogram(color="red")+
+  labs(title = "Second Period Grade Distribution")
+
+G3_p <- ggplot(st_df_1, aes(x = G3)) + 
+  geom_histogram(color="green")+
+  labs(title = "Final Period Grade Distribution")
+
+grid.arrange(G1_p, G2_p, G3_p, nrow = 2)
+
+```
+
+```{r}
+# Boxplots for sex, interet and famsize with respect to final score.
+Sex_B <- ggplot(st_df, aes(x = sex, y = G3, fill = sex)) + 
+    geom_boxplot() +
+  labs(title = "Final Period Grade By Gender")
+
+Internet_B <- ggplot(st_df, aes(x = internet, y = G3, fill = internet)) + 
+    geom_boxplot() +
+  labs(title = "Final Period Grade By Internet Status")
+
+Fam_B <- ggplot(st_df, aes(x = famsize, y = G3, fill = famsize)) + 
+    geom_boxplot() +
+  labs(title = "Final Period Grade By Fam Size")
+
+grid.arrange(Sex_B, Internet_B, Fam_B, nrow = 2)
+```
+
+
+```{r}
+# Divide data into 70% training and 30% testing
+set.seed(188)
+index <- sample(c(rep(0, 0.7 * nrow(st_df_1)), 
+                  rep(1, 0.3 * nrow(st_df_1))))
+train_data <- st_df_1[index == 0, ] 
+test_data <- st_df_1[index == 1, ]
+```
+
+
+
+```{r}
+# Build SVM regression model.
+svmModel <- svm(G3 ~., 
+                data = train_data)
+
+# Print summary of the trained model.
+summary(svmModel)
+```
+
+
+
+```{r}
+# Perform predictions on the test set.
+pred <- predict(svmModel, 
+                test_data)
+
+# Calculate Root mean squared error
+rmse(pred, 
+     test_data$G3)
+```
+
